@@ -1,6 +1,7 @@
 """Module for machine learning visualization utilities."""
 
-from typing import Optional, Union
+from typing import Dict, List, Optional, Union
+import warnings
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
@@ -86,3 +87,143 @@ def predict_and_plot(
     plt.show()
 
     return cf
+
+def dist_box(dataset: pd.DataFrame, column: str) -> None:
+    """Plots a distribution plot and a boxplot side-by-side for a given feature.
+
+    Args:
+        dataset: Input Pandas DataFrame containing the target feature.
+        column: Column name to visualize.
+    """
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+
+        plt.figure(figsize=(16, 6))
+
+        # Distribution plot
+        plt.subplot(1, 2, 1)
+        sns.distplot(dataset[column], color="purple")
+        plt.ticklabel_format(style="plain", axis="x")
+        plt.title(f"Графік розподілу для {column}")
+
+        # Boxplot
+        plt.subplot(1, 2, 2)
+        red_diamond = dict(markerfacecolor="r", marker="D")
+        sns.boxplot(y=column, data=dataset, flierprops=red_diamond)
+        plt.title(f"Боксплот для {column}")
+
+        plt.show()
+
+
+def plot_filtered_correlation_matrix(
+    df: pd.DataFrame,
+    numerical_features: List[str],
+    threshold: float = 0.5,
+    max_threshold: float = 0.9999,
+    figsize: tuple = (10, 4),
+) -> pd.DataFrame:
+    """Calculates and visualizes a filtered correlation matrix for numerical features.
+
+    Args:
+        df: Input DataFrame containing numerical features.
+        numerical_features: List of column names corresponding to numerical variables.
+        threshold: Absolute correlation minimum threshold for filtering. Defaults to 0.5.
+        max_threshold: Upper limit threshold to filter out self-correlation. Defaults to 0.9999.
+        figsize: Size of the figure tuple (width, height). Defaults to (10, 4).
+
+    Returns:
+        pd.DataFrame: Calculated correlation matrix.
+    """
+    corr = df[numerical_features].corr()
+    filtered_corr = corr[
+        ((corr >= threshold) & (corr < max_threshold)) | (corr <= -threshold)
+    ]
+
+    plt.figure(figsize=figsize)
+    sns.heatmap(data=filtered_corr, annot=True, cmap="RdYlGn", cbar=True)
+    plt.title("Filtered Correlation Matrix")
+    plt.show()
+
+    return corr
+
+
+def bi_countplot_target(
+    df0: pd.DataFrame,
+    df1: pd.DataFrame,
+    column: str,
+    hue_column: str,
+    positive_category_name: str = "Positive Class",
+    negative_category_name: str = "Negative Class",
+) -> None:
+    """Generates comparative normalized percentage and raw frequency count bar charts.
+
+    Compares categorical distributions across two separate datasets (e.g., target=0 vs target=1).
+
+    Args:
+        df0 (pd.DataFrame): Subset DataFrame corresponding to class 0 (e.g., negative/non-converted).
+        df1 (pd.DataFrame): Subset DataFrame corresponding to class 1 (e.g., positive/converted).
+        column (str): Primary categorical variable to evaluate on the x-axis.
+        hue_column (str): Categorical variable used for grouping (hue equivalent).
+        positive_category_name (str): Title label for the positive class subplot (df1). Defaults to "Positive Class".
+        negative_category_name (str): Title label for the negative class subplot (df0). Defaults to "Negative Class".
+    """
+    unique_hue_df1 = df1[hue_column].unique()
+    unique_hue_df0 = df0[hue_column].unique()
+
+    # 1. Normalized Percentage Distribution Chart
+    group_name = f"Normalized distribution of values for category: {column}"
+    print(group_name.upper())
+
+    fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(14, 4))
+
+    # Normalized chart for positive class (target = 1)
+    proportions1 = (
+        df1.groupby(hue_column)[column].value_counts(normalize=True) * 100
+    ).round(2)
+    ax1 = proportions1.unstack(hue_column).sort_values(
+        by=unique_hue_df1[0], ascending=False
+    ).plot.bar(ax=axes[0], title=positive_category_name)
+
+    for container in ax1.containers:
+        ax1.bar_label(container, fmt="{:,.1f}%")
+
+    # Normalized chart for negative class (target = 0)
+    proportions0 = (
+        df0.groupby(hue_column)[column].value_counts(normalize=True) * 100
+    ).round(2)
+    ax2 = proportions0.unstack(hue_column).sort_values(
+        by=unique_hue_df0[0], ascending=False
+    ).plot.bar(ax=axes[1], title=negative_category_name)
+
+    for container in ax2.containers:
+        ax2.bar_label(container, fmt="{:,.1f}%")
+
+    plt.tight_layout()
+    plt.show()
+
+    # 2. Raw Count Distribution Chart
+    group_name_count = f"Count of values for category: {column}"
+    print(group_name_count.upper())
+
+    fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(14, 4))
+
+    # Raw counts for positive class (target = 1)
+    counts1 = df1.groupby(hue_column)[column].value_counts()
+    ax3 = counts1.unstack(hue_column).sort_values(
+        by=unique_hue_df1[0], ascending=False
+    ).plot.bar(ax=axes[0], title=positive_category_name)
+
+    for container in ax3.containers:
+        ax3.bar_label(container)
+
+    # Raw counts for negative class (target = 0)
+    counts0 = df0.groupby(hue_column)[column].value_counts()
+    ax4 = counts0.unstack(hue_column).sort_values(
+        by=unique_hue_df0[0], ascending=False
+    ).plot.bar(ax=axes[1], title=negative_category_name)
+
+    for container in ax4.containers:
+        ax4.bar_label(container)
+
+    plt.tight_layout()
+    plt.show()
